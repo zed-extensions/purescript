@@ -1,0 +1,12 @@
+#
+# zed-purescript
+#
+
+*.wasm
+/grammars
+
+#
+# Rust
+#
+
+/target
