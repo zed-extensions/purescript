@@ -1,5 +1,5 @@
 use std::{env, fs};
-use zed_extension_api::{self as zed, serde_json, Result};
+use zed_extension_api::{self as zed, serde_json, settings::LspSettings, Result};
 
 const SERVER_PATH: &str = "node_modules/.bin/purescript-language-server";
 const PACKAGE_NAME: &str = "purescript-language-server";
@@ -10,7 +10,7 @@ struct PurescriptExtension {
 
 impl PurescriptExtension {
     fn server_exists(&self) -> bool {
-        fs::metadata(SERVER_PATH).map_or(false, |stat| stat.is_file())
+        fs::metadata(SERVER_PATH).is_ok_and(|stat| stat.is_file())
     }
 
     fn server_script_path(&mut self, language_server_id: &zed::LanguageServerId) -> Result<String> {
@@ -64,7 +64,7 @@ impl zed::Extension for PurescriptExtension {
     fn language_server_command(
         &mut self,
         language_server_id: &zed::LanguageServerId,
-        _worktree: &zed::Worktree,
+        worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
         let server_path = self.server_script_path(language_server_id)?;
         Ok(zed::Command {
@@ -77,7 +77,10 @@ impl zed::Extension for PurescriptExtension {
                     .to_string(),
                 "--stdio".to_string(),
             ],
-            env: Default::default(),
+            env: LspSettings::for_worktree(language_server_id.as_ref(), worktree)
+                .ok()
+                .and_then(|settings| settings.binary.and_then(|settings| settings.env))
+                .map_or_else(Default::default, |binary| binary.into_iter().collect()),
         })
     }
 
